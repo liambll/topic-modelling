@@ -79,6 +79,7 @@ class Spider_JMLR(scrapy.Spider):
 # Start MongoDB Server: mongod.exe --dbpath D:\Training\Software\MongoDB\data
 # export PATH=/home/llbui/mongodb/mongodb-linux-x86_64-3.4.2/bin:$PATH
 # mongod --dbpath /home/llbui/mongodb/data
+# mongo mongodb://gateway.sfucloud.ca:27017/publications
 client = MongoClient("mongodb://localhost:27017")
 db = client['publications']
 collection = db['papers']
