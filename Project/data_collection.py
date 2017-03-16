@@ -55,8 +55,12 @@ class Spider_JMLR(scrapy.Spider):
         f = open(path, 'wb')
         f.write(response.body)
         f.close()
+        f = open(path, 'rb')
+        content = f.read()
+        f.close()
         # Process PDF file
-        text = data_processing.pdf_to_text(path) #Something wrong here!
+        #text = data_processing.pdf_to_text(path) #Something wrong here!
+        text = ""
         os.remove(f.name)
     
         
@@ -68,7 +72,7 @@ class Spider_JMLR(scrapy.Spider):
                  "authors": item['authors'],
                  "abstract": item['abstract'],
                  "keywords": item['keywords'],
-                 "content": response,
+                 "content": content,
                  "text": text
                  }
         collection.insert_one(paper)
@@ -79,8 +83,9 @@ class Spider_JMLR(scrapy.Spider):
 # Start MongoDB Server: mongod.exe --dbpath D:\Training\Software\MongoDB\data
 # export PATH=/home/llbui/mongodb/mongodb-linux-x86_64-3.4.2/bin:$PATH
 # mongod --dbpath /home/llbui/mongodb/data
-# mongo mongodb://gateway.sfucloud.ca:27017/publications
-client = MongoClient("mongodb://localhost:27017")
+# mongo mongodb://gateway.sfucloud.ca:27017
+#client = MongoClient("mongodb://localhost:27017")
+client = MongoClient("mongodb://gateway.sfucloud.ca:27017")
 db = client['publications']
 collection = db['papers']
 

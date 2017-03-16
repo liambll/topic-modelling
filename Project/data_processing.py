@@ -37,7 +37,7 @@ def pdf_to_text(pdfname):
     return text
 
 '''
-pdfname = "http://www.jmlr.org/papers/volume18/14-249/14-249.pdf"
+pdfname = "14-249.pdf"
 text = pdf_to_text(pdfname)
 text = text.lower()
 abstract_index = text.find("abstract")
