@@ -4,40 +4,41 @@ Created on Wed Mar 15 11:18:46 2017
 
 @author: linhb
 """
-from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter#process_pdf
-from pdfminer.pdfpage import PDFPage
-from pdfminer.converter import TextConverter
-from pdfminer.layout import LAParams
 
-from io import StringIO
+from pdfminer.pdfparser import PDFParser, PDFDocument
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.converter import PDFPageAggregator
+from pdfminer.layout import LAParams, LTTextBox, LTTextLine, LTText
 
 def pdf_to_text(pdfname):
-    # PDFMiner boilerplate
-    rsrcmgr = PDFResourceManager()
-    sio = StringIO()
-    codec = 'utf-8'
-    laparams = LAParams()
-    device = TextConverter(rsrcmgr, sio, codec=codec, laparams=laparams)
-    interpreter = PDFPageInterpreter(rsrcmgr, device)
-
-    # Extract text
-    
     fp = open(pdfname, 'rb')
-    for page in PDFPage.get_pages(fp):
+    parser = PDFParser(fp)
+    doc = PDFDocument()
+    parser.set_document(doc)
+    doc.set_parser(parser)
+    doc.initialize('')
+    rsrcmgr = PDFResourceManager()
+    laparams = LAParams()
+    device = PDFPageAggregator(rsrcmgr, laparams=laparams)
+    interpreter = PDFPageInterpreter(rsrcmgr, device)
+    
+    # Process each page contained in the document.
+    text = ""     
+    for page in doc.get_pages():
         interpreter.process_page(page)
+        layout = device.get_result()
+        for lt_obj in layout:
+            if isinstance(lt_obj, LTTextBox) or isinstance(lt_obj, LTTextLine) \
+                    or isinstance(lt_obj, LTText):
+                text = text + '\n' + lt_obj.get_text()
+
     fp.close()
-
-    # Get text from StringIO
-    text = sio.getvalue()
-
-    # Cleanup
     device.close()
-    sio.close()
-
     return text
 
 '''
-pdfname = "14-249.pdf"
+# Test:
+pdfname = "Project/14-249.pdf"
 text = pdf_to_text(pdfname)
 text = text.lower()
 abstract_index = text.find("abstract")

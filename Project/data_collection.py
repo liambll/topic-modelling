@@ -9,6 +9,7 @@ import os
 from pymongo import MongoClient
 import scrapy
 from scrapy.crawler import CrawlerProcess
+from scrapy.selector import Selector
 import data_processing
 
 class PDF_File(scrapy.Item):
@@ -17,7 +18,7 @@ class PDF_File(scrapy.Item):
     authors = scrapy.Field()
     abstract = scrapy.Field()
     keywords = scrapy.Field()
-    content = scrapy.Field()
+    url = scrapy.Field()
     
 class Spider_JMLR(scrapy.Spider):
     name = "JMLR"
@@ -38,29 +39,44 @@ class Spider_JMLR(scrapy.Spider):
             item['source'] = 'JRML'
             item['title'] = dl.css('dt::text').extract_first()
             item['authors'] = dl.css('i::text').extract_first()
-            item['abstract'] = ''
             item['keywords'] = ''
-            item['content'] = ''
             
+            # pdf link
             pdf_url = dl.css('a::attr(href)').extract()[1]
             pdf_fullurl = response.urljoin(pdf_url)
-            request = scrapy.Request(pdf_fullurl, callback=self.processPDF)
+            item['url'] = pdf_fullurl
+
+            # abstract link
+            abstract_url = dl.css('a::attr(href)').extract()[0]
+            abstract_fullurl = response.urljoin(abstract_url)
+            request = scrapy.Request(abstract_fullurl, callback=self.processAbstract)
             request.meta['item'] = item
-            yield request   
-            
+            yield request 
+                  
+    def processAbstract(self, response):
+        # get abstract text
+        text = Selector(text=response.body).xpath('//text()').extract()
+        text = ''.join(text)
+        abstract_index = text.lower().find("abstract")
+        abs_index = text.lower().find("[abs]")
+        abstract = text[abstract_index+8: abs_index]
+        abstract = abstract.replace("\n", " ").strip()
+        item = response.meta['item']
+        item['abstract'] = abstract
+
+        # process pdf link
+        request = scrapy.Request(item['url'], callback=self.processPDF)
+        request.meta['item'] = item
+        yield request
+        
     def processPDF(self, response):
         # save pdf file
         path = response.url.split('/')[-1]
-        
         f = open(path, 'wb')
         f.write(response.body)
         f.close()
-        f = open(path, 'rb')
-        content = f.read()
-        f.close()
-        # Process PDF file
-        #text = data_processing.pdf_to_text(path) #Something wrong here!
-        text = ""
+        # Process PDF file to extract text
+        text = data_processing.pdf_to_text(path)
         os.remove(f.name)
     
         
@@ -72,44 +88,22 @@ class Spider_JMLR(scrapy.Spider):
                  "authors": item['authors'],
                  "abstract": item['abstract'],
                  "keywords": item['keywords'],
-                 "content": content,
+                 "url": item['url'],
+                 "content": response.body,
                  "text": text
                  }
-        collection.insert_one(paper)
+        collection.save(paper)
         
         
-
 # Setup MongoDB Connection
 # Start MongoDB Server: mongod.exe --dbpath D:\Training\Software\MongoDB\data
 # export PATH=/home/llbui/mongodb/mongodb-linux-x86_64-3.4.2/bin:$PATH
 # mongod --dbpath /home/llbui/mongodb/data
 # mongo mongodb://gateway.sfucloud.ca:27017
-#client = MongoClient("mongodb://localhost:27017")
-client = MongoClient("mongodb://gateway.sfucloud.ca:27017")
+client = MongoClient("mongodb://localhost:27017")
+#client = MongoClient("mongodb://gateway.sfucloud.ca:27017")
 db = client['publications']
 collection = db['papers']
-
-'''
-f = open('14-249.pdf', 'rb')
-content = f.read()
-text = ''
-f.close()
-
-f2 = open('test.pdf', 'wb')
-f2.write(content)
-f2.close()
-
-paper = {"_id": 'JRML'+' '+'a Title'
-         "source": 'JRML',
-         "title": 'a Title',
-         "authors": 'list of authorszzzz',
-         "abstract": 'an abstract',
-         "keywords": 'list of keywordszzzz',
-         "content": content,
-         "text": text
-         }
-collection.insert_one(paper)
-'''
 
 # Start Web Crawler
 process = CrawlerProcess({
