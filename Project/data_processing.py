@@ -34,7 +34,7 @@ def pdf_to_text(pdfname):
 
     fp.close()
     device.close()
-    return text
+    return text.replace('\n\n', '\n')
 
 '''
 # Test:

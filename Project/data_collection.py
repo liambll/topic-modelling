@@ -13,12 +13,13 @@ import scrapy
 from scrapy.crawler import CrawlerProcess
 from scrapy.selector import Selector
 from scrapy.http import FormRequest
+import hashlib
 import data_processing
 
 # SFU Username and Password in order to access some journals
 # These variables should be stored in environment for security
-USERNAME = ''
-PASSWORD = ''
+USERNAME = 'your_username'
+PASSWORD = 'your_password'
 
 class PDF_File(scrapy.Item):
     source = scrapy.Field()
@@ -31,9 +32,10 @@ class PDF_File(scrapy.Item):
 # Process PDF and Save document to MongoDB
 def processPDF(response):
     item = response.meta['item']
+    documentid = int(hashlib.sha256(item['title'].encode('utf-8')).hexdigest(), 16) % 10**8
 
     # save pdf file with a temp filename in order to extract text
-    path = str(abs(hash(item['title'])) % (10 ** 8)) + '.pdf'
+    path = str(documentid) + '.pdf'
     f = open(path, 'wb')
     f.write(response.body)
     f.close()
@@ -42,7 +44,7 @@ def processPDF(response):
     os.remove(f.name)
 
     # Save Item object to MongoDB
-    paper = {"_id": item['title'],
+    paper = {"_id": documentid,
              "source": item['source'],
              "title": item['title'],
              "authors": item['authors'],
@@ -123,7 +125,7 @@ class Spider_NIPS(scrapy.Spider):
     def parseMain(self, response):
         self.log('Processing %s' % response.url)
         dl_list = response.css('li')
-        for dl in dl_list[1:]:
+        for dl in dl_list[1:]: # skip the first li
             # process link to paper details
             url = dl.css('a::attr(href)').extract()[0]
             fullurl = response.urljoin(url)
@@ -197,7 +199,21 @@ class Spider_SLML(scrapy.Spider):
         request = scrapy.Request(item['url'], callback=processPDF)
         request.meta['item'] = item
         yield request
-        
+ 
+################################################
+# Web Crawler for SpringerLink Machine Learning
+################################################
+class Spider_IEEE(scrapy.Spider):
+    name = "IEEE"
+    
+    #Jacob, please implement your class here
+    # You can look at Spider_SLML as reference to handle authentication
+ 
+
+################################################
+# Set up MongoDB and Web Crawler
+################################################
+
 # Setup MongoDB Connection
 # Start MongoDB Server: mongod.exe --dbpath D:\Training\Software\MongoDB\data
 # export PATH=/home/llbui/mongodb/mongodb-linux-x86_64-3.4.2/bin:$PATH
@@ -212,9 +228,9 @@ collection = db['papers']
 process = CrawlerProcess({
     'USER_AGENT': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)'
 })
-#process.crawl(Spider_JMLR)
+process.crawl(Spider_JMLR)
 #process.crawl(Spider_NIPS)
-process.crawl(Spider_SLML)
+#process.crawl(Spider_SLML)
 
 process.start()
 
