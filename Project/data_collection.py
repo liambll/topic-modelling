@@ -65,7 +65,7 @@ class Spider_JMLR(scrapy.Spider):
     def start_requests(self):
         urls = []
         # JMLR papers in the past 5 years
-        for i in range(18,19,1):
+        for i in range(13,19,1):
             urls.append('http://www.jmlr.org/papers/v%i/' %i)
         for url in urls:
             yield scrapy.Request(url=url, callback=self.parseMain)
@@ -228,8 +228,8 @@ collection = db['papers']
 process = CrawlerProcess({
     'USER_AGENT': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)'
 })
-process.crawl(Spider_JMLR)
-#process.crawl(Spider_NIPS)
+#process.crawl(Spider_JMLR)
+process.crawl(Spider_NIPS)
 #process.crawl(Spider_SLML)
 
 process.start()
