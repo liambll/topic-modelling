@@ -20,25 +20,35 @@ import scala.collection.JavaConverters._
 object TopicModel {
   def main(args: Array[String]) {
     var output_path = "/user/llbui/bigdata"
-    //val output_path = "C:/Users/linhb/bigdata"
-    var feature = "text"
-    var initial_k = 2
-    var list_k: List[Int] = List()
+    //var output_path = "C:/Users/linhb/bigdata"
+    var feature = "abstract" //feature to perform LDA on
+    var mode = "online" //online or em LDA mode
+    var maxIter = 100
+    var initial_k = 2 //number of topics
+    var list_k: List[Int] = List() //other number of topics to try
     if (args.length > 0) {
       if (args(0).length > 0) {
         output_path = args(0)
       }  
     }
     if (args.length > 1) {
-      if (args(1) == "abstract") {
-        feature = "abstract"
+      if (args(1) == "text") {
+        feature = "text"
       }  
     }
     if (args.length > 2) {
-      initial_k = args(2).toInt
+      if (args(2) == "em") {
+        mode = "em"
+      }  
     }
     if (args.length > 3) {
-      list_k = args.slice(3, args.length).toList.map { x => x.toInt }
+      maxIter = args(3).toInt
+    }    
+    if (args.length > 4) {
+      initial_k = args(4).toInt
+    }
+    if (args.length > 5) {
+      list_k = args.slice(5, args.length).toList.map { x => x.toInt }
     }
 
     val my_spark = SparkSession.builder()
@@ -86,6 +96,7 @@ object TopicModel {
       .setMinTF(1.0)
       .setMinDF(1.0)
     val countTF_model = countTF.fit(df4)
+    countTF_model.save(output_path + "/tf_model")
     val df_countTF = countTF_model.transform(df4)
     val vocab = countTF_model.vocabulary
     output_log += "CountVectorizer vocab size: " + vocab.length + "\n"
@@ -94,6 +105,7 @@ object TopicModel {
       .setInputCol("raw_features")
       .setOutputCol("features")
     val idf_model = idf.fit(df_countTF)
+    idf_model.save(output_path + "/idf_model")
     val df_IDF = idf_model.transform(df_countTF)
     df_IDF.cache()
     
@@ -102,8 +114,8 @@ object TopicModel {
     val lda = new LDA()
         .setK(best_k)
         .setSeed(1)
-        .setOptimizer("online")
-        .setMaxIter(100)
+        .setOptimizer(mode)
+        .setMaxIter(maxIter)
         .setFeaturesCol("features")
     var best_model = lda.fit(df_IDF)
 
@@ -118,10 +130,9 @@ object TopicModel {
       val lda = new LDA()
         .setK(k)
         .setSeed(1)
-        .setOptimizer("online")
-        .setMaxIter(100)
+        .setOptimizer(mode)
+        .setMaxIter(maxIter)
         .setFeaturesCol("features")
-        .setSeed(13)
       val lda_model = lda.fit(df_IDF)
 
       //evaluation: high likelihood, low perplexity
@@ -144,7 +155,7 @@ object TopicModel {
     
     //LDA model description
     println("LDA Model vocab size:" + best_model.vocabSize)
-    val topics = best_model.describeTopics(maxTermsPerTopic=10)
+    val topics = best_model.describeTopics(maxTermsPerTopic=30)
     //topics.show()
     val udf_lookup_words = udf{x:Seq[Integer]  => lookup_words(x, vocab)}
     val topics_words = topics.withColumn("words", udf_lookup_words(topics("termIndices")))
@@ -158,14 +169,14 @@ object TopicModel {
     val df_Document = best_model.transform(df_IDF)
     //println(df_Document.select("topicDistribution").head())
     // save topicDistribution for each document
-    df_Document.select("_id", "topicDistribution").write.save(output_path + "/topicDistribution.parquet")
+    df_Document.select("_id", "authors", "title", "abstract", "url", "topicDistribution").write.save(output_path + "/topicDistribution.parquet")
     // save topicDistribution to mongoDB?
     output_log += "Done"
     
     //scala.tools.nsc.io.File("output_log.txt").writeAll(output_log)
     val output_array = Array(output_log)
     val output = my_spark.sparkContext.parallelize(output_array)
-    output.coalesce(1).saveAsTextFile("/user/llbui/bigdata/output")
+    output.coalesce(1).saveAsTextFile(output_path + "/output")
     
     println(output_log)
     

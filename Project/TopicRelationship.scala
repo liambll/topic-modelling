@@ -2,6 +2,8 @@
  * Some code logic on interestingness are from Advanced Analytics with Spark book
  */
 
+// spark-submit --master yarn --deploy-mode client --driver-memory 10g --class TopicRelationship big-data-analytics-project_2.11-1.0.jar "" 0.0025 
+
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.rdd._
@@ -10,35 +12,48 @@ import scala.collection.mutable.ListBuffer
 
 object TopicRelationship {
   def main(args: Array[String]) {
-    val output_path = "C:/Users/linhb/bigdata"
-
+    var input_path = "/user/llbui/bigdata45_500"
+    //val output_path = "C:/Users/linhb/bigdata"
+    var output_path = "/user/llbui/bigdatagraph"
+    //val output_path = "C:/Users/linhb/bigdatagraph"
+    
+    var threshold = 0.0004795  // topic distribution threshold to decide if a document is considered belong to a topic
+    var chisquare_threshold = 19.5  // Chisquare threshold to decide if two topics relationship is considered interesting
+    var list_k: List[Int] = List()
+    if (args.length > 0) {
+      if (args(0).length > 0) {
+        input_path = args(0)
+      }  
+    }
+    if (args.length > 1) {
+      threshold = args(1).toDouble
+    }
+    if (args.length > 2) {
+      chisquare_threshold = args(2).toDouble
+    }
+    
     val my_spark = SparkSession.builder()
-      .master("local")
+      //.master("local")
       .appName("Topic Relationship")
-      //.config("spark.mongodb.input.uri", "mongodb://127.0.0.1/publications.papers")
-      //.config("spark.mongodb.output.uri", "mongodb://127.0.0.1/publications.papers")
       .getOrCreate()
     my_spark.sparkContext.setLogLevel("WARN")
     
     // Read data into document - majorTopics RDD
-    val rdd_Document: RDD[Array[Double]] = my_spark.read.load(output_path + "/topicDistribution.parquet").rdd
-      .map(row => row(1).asInstanceOf[DenseVector])
-      .map(_.toArray.map(_.toDouble))  
+    val rdd_Document: RDD[Array[Double]] = my_spark.read.load(input_path + "/topicDistribution.parquet").rdd
+      .map(row => row(5).asInstanceOf[DenseVector])
+      .map(_.toArray.map(_.toDouble))
+    //println("- Topic Distribution stat:\n" +rdd_Document.flatMap(x => x).stats())
+    // save topic distribution so that we can examine it and choose threshold at 80 percentile
+    //rdd_Document.flatMap(x => x).coalesce(1).saveAsTextFile(output_path + "/topicDistributionStat")
     
-    //for (i <- 0 to 7) { print(rdd_Document.collect()(i).asInstanceOf[Array[Double]].mkString(" ")) }
-    
-    val threshold = 0.000024
-    //val threshold = 0.0
     val documentTopic: RDD[Seq[Int]] = rdd_Document.map(x => get_major_topics(threshold, x))
     documentTopic.cache()
-    //for (i <- 0 to 7) { print(documentTopic.collect()(i)) }
     
     // Generate topics RDD and topic-pairs RDD
     val topics: RDD[Int] = documentTopic.flatMap(x => x)   
     val topicPairs = documentTopic.flatMap(t => t.sorted.combinations(2))
     val cooccurs = topicPairs.map(p => (p, 1)).reduceByKey(_+_)
     cooccurs.cache()
-    //print(cooccurs.collect()(0))
     
     /* Graph based on co-occurence */
     // Create Graph
@@ -50,42 +65,44 @@ object TopicRelationship {
     })
     val topicGraph = Graph(vertices, edges)
     topicGraph.cache()
+    //topicGraph.edges.coalesce(1).saveAsTextFile(output_path + "/topicGraph")
     
     // Check degree
     val degrees: VertexRDD[Int] = topicGraph.degrees.cache()
-    //print(degrees.map(_._2).stats())
+    println("- Degree:\n" + degrees.map(_._2).stats())
     
     // Check connected components
     val connectedComponentGraph: Graph[VertexId, Int] = topicGraph.connectedComponents()
     val componentCounts = sortedConnectedComponents(connectedComponentGraph)
-    //componentCounts.take(10)foreach(println)
+    println("- Connected Component")
+    componentCounts.foreach(println)
+    
     
     /* Graph based on Chi-square */
     // Create Graph
     val n = documentTopic.count()
-    val topicCountsRdd = topics.map(x => (x.hashCode().toLong, 1)).reduceByKey(_+_)
+    val topicCountsRdd = topics.map(x => (x.toLong, 1)).reduceByKey(_+_)
     val topicCountGraph = Graph(topicCountsRdd, topicGraph.edges)
     val chiSquaredGraph = topicCountGraph.mapTriplets(triplet => {
       chiSq(triplet.attr, triplet.srcAttr, triplet.dstAttr, n)
     })
-    print(chiSquaredGraph.edges.map(x => x.attr).stats())
+    println("- Chisquare stat:\n" +chiSquaredGraph.edges.map(x => x.attr).stats())
     
     val interesting = chiSquaredGraph.subgraph(
-      triplet => triplet.attr > 19.5)
-    interesting.edges.count
+      triplet => triplet.attr > chisquare_threshold)
+    //interesting.edges.count
+    interesting.edges.coalesce(1).saveAsTextFile(output_path + "/interestingGraph")
     
     // Check degree
     val interestingDegrees = interesting.degrees.cache()
-    print(interestingDegrees.map(_._2).stats())
+    println("- Chisquare Degree:\n" +interestingDegrees.map(_._2).stats())
     
     // Check connected components
     val interestingComponentCounts = sortedConnectedComponents(interesting.connectedComponents())
     print(interestingComponentCounts.size)
-    interestingComponentCounts.take(10).foreach(println)
+    println("- Interesting Connected Component")
+    interestingComponentCounts.foreach(println)
     
-    // Clustering
-    val avgCC = avgClusteringCoef(interesting)
-    print(avgCC)
   }
   
   def get_major_topics(threshold: Double, topicDist: Array[Double]) : Seq[Int] = {
@@ -112,13 +129,4 @@ object TopicRelationship {
       val inner = (YY * NN - YN * NY) - T / 2.0
       T * math.pow(inner, 2) / (YA * NA * YB * NB)
   }
-  
-  def avgClusteringCoef(graph: Graph[_, _]): Double = {
-    val triCountGraph = graph.triangleCount()
-    val maxTrisGraph = graph.degrees.mapValues(d => d * (d - 1) / 2.0)
-    val clusterCoefGraph = triCountGraph.vertices.innerJoin(maxTrisGraph) {
-      (vertexId, triCount, maxTris) => if (maxTris == 0) 0 else triCount / maxTris
-    }
-    clusterCoefGraph.map(_._2).sum() / graph.vertices.count()
-  } 
 }
