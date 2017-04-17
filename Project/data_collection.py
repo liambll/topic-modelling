@@ -332,8 +332,8 @@ class Spider_ARXIV(scrapy.Spider):
 # export PATH=/home/llbui/mongodb/mongodb-linux-x86_64-3.4.2/bin:$PATH
 # mongod --dbpath /home/llbui/mongodb/data
 # mongo mongodb://gateway.sfucloud.ca:27017
-client = MongoClient("mongodb://localhost:27017")
-#client = MongoClient("mongodb://gateway.sfucloud.ca:27017")
+#client = MongoClient("mongodb://localhost:27017")
+client = MongoClient("mongodb://gateway.sfucloud.ca:27017")
 db = client['publications']
 collection = db['papers']
 
@@ -342,9 +342,9 @@ collection = db['papers']
 process = CrawlerProcess({
     'USER_AGENT': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.24 (KHTML, like Gecko) Ubuntu/10.04 Chromium/11.0.696.0 Chrome/11.0.696.0 Safari/534.24.'
 })
-# process.crawl(Spider_JMLR)
-#process.crawl(Spider_NIPS)
-# process.crawl(Spider_SLML)
+process.crawl(Spider_JMLR)
+process.crawl(Spider_NIPS)
+process.crawl(Spider_SLML)
 process.crawl(Spider_ARXIV)
 process.start()
 

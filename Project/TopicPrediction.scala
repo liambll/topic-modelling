@@ -16,13 +16,13 @@ import scala.collection.JavaConverters._
 // /home/llbui/mongodb/mongodb-linux-x86_64-3.4.2/bin/mongod --dbpath /home/llbui/mongodb/data
 // /home/llbui/mongodb/mongodb-linux-x86_64-3.4.2/bin/mongo mongodb://gateway.sfucloud.ca:27017
 // module load spark/2.0.0
-// Run job: spark-submit --master yarn --deploy-mode client --driver-memory 10g --executor-memory=10g --packages edu.stanford.nlp:stanford-corenlp:3.4.1,org.mongodb.spark:mongo-spark-connector_2.11:2.0.0 --jars stanford-corenlp-3.4.1-models.jar --class TopicModel big-data-analytics-project_2.11-1.0.jar
+// Run job: spark-submit --master yarn --deploy-mode client --driver-memory 10g --executor-memory=5g --packages edu.stanford.nlp:stanford-corenlp:3.4.1 --jars stanford-corenlp-3.4.1-models.jar --class TopicPrediction big-data-analytics-project_2.11-1.0.jar
 
 object TopicPrediction {
   def main(args: Array[String]) {
-    //var output_path = "/user/llbui/bigdata"
-    var output_path = "C:/Users/linhb/bigdata"
-    var query = "gene analysis using deep learning" //query string
+    var output_path = "/user/llbui/bigdata45_500"
+    //var output_path = "C:/Users/linhb/bigdata"
+    var query = "treatment analysis using deep learning" //query string
     var n = 10 // number of similar document to return
     val feature = "abstract" //feature to compare
     
@@ -42,7 +42,7 @@ object TopicPrediction {
 
     val my_spark = SparkSession.builder()
       .master("local")
-      .appName("Topic Model")
+      .appName("Topic Prediction")
       .getOrCreate()
     my_spark.sparkContext.setLogLevel("WARN")
     
@@ -68,7 +68,6 @@ object TopicPrediction {
     
     val idf_model = IDFModel.load(output_path + "/idf_model")
     val df_IDF = idf_model.transform(df_countTF)
-    df_IDF.cache()
     
     //LDA Model
     val lda_model = LocalLDAModel.load(output_path + "/lda_model")
@@ -82,8 +81,8 @@ object TopicPrediction {
     val udf_cosineSimilarity = udf{x_vector: DenseVector => cosineSimilarity(x_vector, feature_vector.asInstanceOf[DenseVector])}
     val df_Similarity = df_Document.withColumn("similarity", udf_cosineSimilarity(df_Document("topicDistribution")))
     val df_Similarity_Sorted = df_Similarity.sort(desc("similarity"))
-    //df_Similarity_Sorted.select("_id", "title", "similarity").collect.foreach(println)
-    df_Similarity_Sorted.limit(n).select("_id", "title", "similarity").write.csv((output_path + "/documentSimilarity"))
+    df_Similarity_Sorted.limit(n).select("_id", "title", "url", "similarity").collect.foreach(println)
+    //df_Similarity_Sorted.limit(n).select("_id", "title", "similarity").write.csv((output_path + "/documentSimilarity"))
     
   }
   

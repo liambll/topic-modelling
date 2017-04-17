@@ -205,7 +205,7 @@ object TopicModel {
   }
   
   def remove_words(aList: Seq[String]): Seq[String] = {
-    val stopWords = List("abstract","keyword","introduction","conclusion","acknowledgement")
+    val stopWords = List("abstract","keyword","introduction","conclusion","acknowledgement", "cid")
     return aList.filter(p => (p.length()>1 && !stopWords.contains(p)))
   }
 

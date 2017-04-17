@@ -44,7 +44,7 @@ object TopicRelationship {
       .map(_.toArray.map(_.toDouble))
     //println("- Topic Distribution stat:\n" +rdd_Document.flatMap(x => x).stats())
     // save topic distribution so that we can examine it and choose threshold at 80 percentile
-    //rdd_Document.flatMap(x => x).coalesce(1).saveAsTextFile(output_path + "/topicDistributionStat")
+    rdd_Document.flatMap(x => x).coalesce(1).saveAsTextFile(output_path + "/topicDistributionStat")
     
     val documentTopic: RDD[Seq[Int]] = rdd_Document.map(x => get_major_topics(threshold, x))
     documentTopic.cache()
@@ -65,7 +65,7 @@ object TopicRelationship {
     })
     val topicGraph = Graph(vertices, edges)
     topicGraph.cache()
-    //topicGraph.edges.coalesce(1).saveAsTextFile(output_path + "/topicGraph")
+    topicGraph.edges.coalesce(1).saveAsTextFile(output_path + "/topicGraph")
     
     // Check degree
     val degrees: VertexRDD[Int] = topicGraph.degrees.cache()
