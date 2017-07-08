@@ -14,4 +14,5 @@
 * web scraping function to retrieval publications from major machine learning journals & conferences
 * topic modeling (Latent Dirichlet Allocation) to explore underlying topics
 * graph analytics to understand and visualize relationship among publication contents
-* Technologies: Scala, Spark ML, Spark GraphX, MongoDB, Gephi
+* a web-based demo for similarity-based publication search
+* Technologies: Scala, Spark ML, Spark GraphX, MongoDB, Gephi, Django
