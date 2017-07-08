@@ -8,6 +8,7 @@
 6. Multiclassification with SVM and random forest using Scikit-Learn
 7. Deep Learning with Caffe
 8. Visualization with D3.js
+9. Active Learning
 
 ## Project: Topic Modelling with Latent Dirichlet Allocation
 * web scraping function to retrieval publications from major machine learning journals & conferences
