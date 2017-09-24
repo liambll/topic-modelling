@@ -1,6 +1,8 @@
 # Big Data Analytics Project: Topic Model on Machine Learning Research Publications #
-- Developed web scraping function to retrieval publications from major machine learning journals
-- Analyzed topic models (Latent Dirichlet Allocation) to explore underlying topics and performed graph analytics to visualize interesting relationship among publication topics
+- web scraping function to retrieval publications from major machine learning journals & conferences
+- topic modeling (Latent Dirichlet Allocation) to explore underlying topics
+- graph analytics to understand and visualize relationship among publication contents
+- a web-based demo for similarity-based publication search
 - Technologies: Scala, Spark ML, Spark GraphX, MongoDB, Gephi, Django
 
 I) Data Collection and Text Extraction:
