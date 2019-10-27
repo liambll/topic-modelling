@@ -1,4 +1,4 @@
-# Big Data Analytics Project: Topic Model on Machine Learning Research Publications #
+# Topic Model on Machine Learning Research Publications #
 - web scraping function to retrieval publications from major machine learning journals & conferences
 - topic modeling (Latent Dirichlet Allocation) to explore underlying topics
 - graph analytics to understand and visualize relationship among publication contents
